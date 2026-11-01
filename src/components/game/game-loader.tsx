@@ -2,14 +2,15 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Pressable } from 'react-native';
 
 const LOADING_TIPS = [
-  '🌿 Deep bushes conceal your body and nametag from the Seeker!',
-  '📦 Crouch behind shipping containers to break line of sight.',
+  '🏡 Exploring the Bangladeshi Village with Tin House & Grazing Cow!',
+  '🌿 Deep bushes and haystacks conceal your body and nametag from the Seeker!',
+  '📦 Crouch behind cover and climb onto the roof to break line of sight.',
   '💓 Listen closely for the heartbeat pulse when danger approaches!',
   '🗼 Climb the lookout tower for a commanding 360° arena view.',
 ];
 
 const STAGES = [
-  'Starting Offline 3D Arena...',
+  'Preparing Bangladeshi Village Homestead & 3D Assets...',
   'Spawning Pip, Milo, Kiko & Hunter-9...',
   'Calibrating Wide-Angle Action Cam...',
   'Playground Ready!',

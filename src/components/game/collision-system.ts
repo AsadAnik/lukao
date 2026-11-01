@@ -68,29 +68,36 @@ export class CollisionWorld {
     this.addBox([-9, 0.4, -9], [3.5, 0.8, 3.5]);
     this.addRamp([-2.0, 0, -6], [-4.5, 0.4, -6], 2.5);
 
-    // 2. Crate Yard (Center at [-11, 0, 9])
-    const cyX = -11;
-    const cyZ = 9;
+    // 2. Bangladeshi Village Homestead (Center at [-12, 0, 9])
+    const vX = -12;
+    const vZ = 9;
 
-    // Ground Container 1
-    this.addBox([cyX, 1.25, cyZ], [5, 2.5, 2.2]);
-    // Ground Container 2 (perpendicular)
-    this.addBox([cyX + 3.6, 1.25, cyZ + 3.5], [2.2, 2.5, 5]);
-    // Stacked Container 3 (on top of Container 1)
-    this.addBox([cyX + 0.5, 3.75, cyZ + 0.2], [5, 2.5, 2.2]);
-    // Container 4
-    this.addBox([cyX - 4, 1.25, cyZ - 2], [4.5, 2.5, 2.2]);
+    // Raised Mud Plinth (মাটির ভিটা) - step up to y = 0.6m
+    this.addBox([vX + 0.0, 0.3, vZ + 0.0], [7.4, 0.6, 6.4]);
+    // Main House Solid Walls (মাটির ঘর)
+    this.addBox([vX + 0.0, 1.85, vZ - 0.6], [6.6, 2.5, 4.4]);
+    // Veranda Step (বারান্দার সিঁড়ি)
+    this.addBox([vX + 0.0, 0.15, vZ + 3.35], [3.4, 0.3, 0.7]);
+    // Climbable Roof Deck (টিনের চাল)
+    this.addBox([vX + 0.0, 3.8, vZ - 0.2], [7.8, 0.4, 4.8]);
+    // Climbing straw bales to roof (চালে ওঠার খড়ের ধাপ)
+    this.addBox([vX + 3.6, 0.6, vZ - 1.8], [1.3, 1.2, 1.3]);
+    this.addBox([vX + 3.6, 1.8, vZ - 1.8], [1.2, 1.2, 1.2]);
+    this.addRamp([vX + 3.4, 2.2, vZ - 1.5], [vX + 2.4, 3.6, vZ - 1.5], 1.2);
 
-    // Climbing Crates staircase
-    this.addBox([cyX - 3, 0.7, cyZ + 1.5], [1.4, 1.4, 1.4]);
-    this.addBox([cyX - 3, 0.7, cyZ + 3.0], [1.4, 1.4, 1.4]);
-    this.addBox([cyX - 3, 2.1, cyZ + 2.2], [1.4, 1.4, 1.4]);
+    // Golden Haystacks (খড়ের গাদা)
+    this.addCylinder([vX - 5.8, vZ - 2.2], 2.4, 0, 2.0);
+    this.addCylinder([vX - 5.8, vZ - 2.2], 1.6, 2.0, 3.2);
+    this.addCylinder([vX - 5.8, vZ - 2.2], 0.8, 3.2, 4.2);
+    this.addCylinder([vX - 7.8, vZ - 0.6], 1.8, 0, 1.8);
 
-    // Secret Nook Crates
-    this.addBox([cyX + 1.5, 0.7, cyZ + 4.5], [1.4, 1.4, 1.4]);
-    this.addBox([cyX + 1.5, 0.7, cyZ + 6.0], [1.4, 1.4, 1.4]);
-    this.addBox([cyX + 2.8, 0.7, cyZ + 6.2], [1.4, 1.4, 1.4]);
-    this.addBox([cyX + 2.1, 2.1, cyZ + 5.5], [1.4, 1.4, 1.4]);
+    // Tubewell platform & pump (চাপাকল)
+    this.addCylinder([vX + 5.2, vZ + 2.8], 1.5, 0, 0.2);
+    this.addCylinder([vX + 5.2, vZ + 2.8], 0.25, 0.2, 1.5);
+
+    // Cow body obstacle & Feeding Trough (গরু ও জাবনা চাড়ি)
+    this.addBox([vX - 5.4, 0.8, vZ + 2.8], [1.4, 1.6, 2.2]);
+    this.addCylinder([vX - 5.4, vZ + 4.7], 0.6, 0, 0.6);
 
     // 3. Seeker's Tower (Center at [14, 0, -12])
     const twX = 14;

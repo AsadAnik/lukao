@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Float } from '@react-three/drei';
+import React, { useState, useEffect, useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
+import * as THREE from 'three';
 import { ArenaGround } from './arena-ground';
 import { SeekerTower } from './seeker-tower';
-import { CrateYard } from './crate-yard';
+import { BangladeshiVillage } from './bangladeshi-village';
 import { BushGrove } from './bush-grove';
 import { TunnelBridge } from './tunnel-bridge';
 import { PlayerCharacter } from './player-character';
@@ -10,6 +11,30 @@ import { AIBots } from './ai-bots';
 import { FisheyeCameraRig } from './fisheye-camera';
 import { lukaoStore } from './game-state';
 import { setupKeyboardControls } from './input-manager';
+
+function FloatingStar({ position = [0, 3.2, 0] }: { position?: [number, number, number] }) {
+  const meshRef = useRef<THREE.Mesh>(null);
+
+  useFrame((state) => {
+    if (!meshRef.current) return;
+    meshRef.current.rotation.y += 0.035;
+    meshRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 2) * 0.18;
+    meshRef.current.position.y = position[1] + Math.sin(state.clock.elapsedTime * 2.5) * 0.22;
+  });
+
+  return (
+    <mesh ref={meshRef} position={position} castShadow>
+      <octahedronGeometry args={[0.7, 0]} />
+      <meshStandardMaterial
+        color="#faf089"
+        emissive="#ecc94b"
+        emissiveIntensity={0.6}
+        roughness={0.2}
+        metalness={0.8}
+      />
+    </mesh>
+  );
+}
 
 export function LukaoScene() {
   const [cameraMode, setCameraMode] = useState(lukaoStore.getState().cameraMode);
@@ -58,23 +83,12 @@ export function LukaoScene() {
 
       {/* Strategic Hide & Seek Zones */}
       <SeekerTower position={[14, 0, -12]} />
-      <CrateYard position={[-11, 0, 9]} />
+      <BangladeshiVillage position={[-12, 0, 9]} />
       <BushGrove position={[12, 0, 11]} />
       <TunnelBridge position={[-2, 0, -13]} />
 
       {/* Floating Collectible Star / Gem */}
-      <Float speed={2} rotationIntensity={1.5} floatIntensity={1.2} position={[0, 3.2, 0]}>
-        <mesh castShadow>
-          <octahedronGeometry args={[0.7, 0]} />
-          <meshStandardMaterial
-            color="#faf089"
-            emissive="#ecc94b"
-            emissiveIntensity={0.6}
-            roughness={0.2}
-            metalness={0.8}
-          />
-        </mesh>
-      </Float>
+      <FloatingStar position={[0, 3.2, 0]} />
 
       {/* Additional Bush Clusters around the arena */}
       <BushGrove position={[-16, 0, -8]} />

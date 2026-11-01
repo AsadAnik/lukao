@@ -1,5 +1,6 @@
 import React from 'react';
 import { Canvas } from '@react-three/fiber';
+import * as THREE from 'three';
 
 interface GameCanvasProps {
   children: React.ReactNode;
@@ -31,6 +32,16 @@ export function GameCanvas({ children }: GameCanvasProps) {
           display: 'block',
         }}
         gl={{ antialias: true, powerPreference: 'high-performance', alpha: false }}
+        onCreated={(state) => {
+          const { width, height } = state.size;
+          const cam = state.camera as THREE.PerspectiveCamera;
+          if (cam && cam.isPerspectiveCamera && width > 0 && height > 0) {
+            cam.aspect = width / height;
+            cam.updateProjectionMatrix();
+          }
+          state.camera.lookAt(0, 0.75, 0);
+          state.gl.setClearColor(new THREE.Color('#90cdf4'), 1);
+        }}
       >
         {children}
       </Canvas>

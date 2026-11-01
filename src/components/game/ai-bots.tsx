@@ -7,21 +7,24 @@ import { playerTransform, gameEngine } from './game-engine-state';
 
 // Designated hiding spots around the Lukao arena
 const HIDING_WAYPOINTS: [number, number, number][] = [
-  [12, 0.75, 11],    // Bush Grove
-  [-11, 0.75, 8.5],  // Crate Yard nook
-  [-2, 0.75, -13],   // Arch Tunnel interior
-  [-16, 0.75, -8],   // Far Bush Grove
-  [-9, 1.2, -9],     // Raised platform
+  [12, 0.75, 11],       // Bush Grove
+  [-12, 0.75, 7.0],     // Village Tin Homestead Veranda
+  [-16.5, 0.75, 6.5],   // Golden Haystack hiding nook
+  [-2, 0.75, -13],      // Arch Tunnel interior
+  [-16, 0.75, -8],      // Far Bush Grove
+  [-9, 1.2, -9],        // Raised platform
 ];
 
 // Seeker patrol route waypoints
 const SEEKER_PATROL_ROUTE: [number, number, number][] = [
-  [14, 0.8, -12],    // Seeker Tower
-  [0, 0.75, 0],      // Center Plaza
-  [-11, 0.75, 7],    // Crate Yard entrance
-  [-2, 0.75, -11],   // Tunnel exterior
-  [10, 0.75, 9],     // Bush Grove exterior
-  [-8, 0.75, -7],    // Stepping pads
+  [14, 0.8, -12],       // Seeker Tower
+  [0, 0.75, 0],         // Center Plaza
+  [-12, 0.75, 6.5],     // Village Homestead entrance
+  [-17, 0.75, 8.5],     // Haystack perimeter
+  [-18.5, 0.75, 10.0],  // Grazing cow & manger zone
+  [-2, 0.75, -11],      // Tunnel exterior
+  [10, 0.75, 9],        // Bush Grove exterior
+  [-8, 0.75, -7],       // Stepping pads
 ];
 
 export function AIBots() {

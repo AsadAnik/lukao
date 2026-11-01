@@ -45,8 +45,13 @@ For an engaging Hide and Seek experience, the ground environment contains strate
 1. **The Lookout Tower (Seeker's Spire):**
    - High elevated platform located near the map edge/center.
    - Used for the Seeker's countdown phase and strategic scanning.
-2. **The Crate & Container Maze:**
-   - Stacked shipping containers, wooden crates, and barrels creating narrow alleys and dead-ends for hiding.
+2. **The Bangladeshi Village Homestead (গ্রামের বাড়ি ও খড়ের গাদা):**
+   - Traditional corrugated tin-roof house (টিনের দোচালা ঘর) with a raised mud plinth (মাটির ভিটা), wooden pillars, and veranda (বারান্দা).
+   - Climbable straw bales and roof ramp allowing players to scramble onto the tin roof for aerial vantage.
+   - Golden tiered haystacks (খড়ের গাদা / পালের মটকা) with bamboo spire for prime stealth hiding.
+   - Animated domestic cow (দেশি গরু) chewing grass with rhythmic head-bobbing and tail swishing near a mud feeding trough (জাবনা চাড়ি).
+   - Classic green cast-iron tubewell (চাপাকল) with concrete platform and red water bucket.
+   - Tropical banana grove (কলা গাছ) and coconut palms (নারিকেল গাছ) with traditional clay oven and pots (মাটির চুলা ও কলসি).
 3. **The Hedge Grove & Hollow Trees:**
    - Soft foliage and low-poly bushes where players can crouch to conceal their nametag/body.
 4. **Tunnels, Underpasses & Bridges:**
@@ -142,7 +147,33 @@ For an engaging Hide and Seek experience, the ground environment contains strate
   - **Idle Pose Engine During Pause:** While `isMenuOpen` is active, player character and AI bots lock into stable ground idle poses without running physics collisions or velocity accumulations.
   - **Ultra-Translucent Frosted Glass Overlay ([`main-menu-modal.tsx`](src/components/game/main-menu-modal.tsx)):** Scaled modal card to 620px max-width with ultra-clear `rgba(15, 23, 42, 0.62)` frosted transparency, making the 3D ground, trees, and character 100% visible through and around the menu.
 
-### Phase 4: Polish & Multiplayer Networking
+- [x] **Universal Mobile & iOS/Android Native Concurrent Multi-Touch Fix:**
+  - **Single Unified Multi-Touch Container (`virtual-joystick.tsx`):** Eliminated Android's single-JS-responder collision bottleneck where sibling `PanResponder`s or individual child `onTouchStart` views cancelled each other out.
+  - **Dynamic Hitbox Evaluation & Touch Pointer ID Routing:** A single root `PanResponder` with `collapsable={false}` and `rgba(0,0,0,0.001)` bounds receives all active touches (`evt.nativeEvent.touches`) across the window and tracks them by unique pointer `identifier`.
+  - **Simultaneous 3+ Finger Inputs:** Players on Android (as well as iOS and Web) can now concurrently:
+    1. Move the fixed analog joystick with their left thumb (`joystickX`, `joystickY`).
+    2. Hold down the Sprint button with their right thumb (`inputState.sprint = true`).
+    3. Swipe and orbit the camera in 360° with another finger (`cameraYaw`, `cameraPitch`).
+    4. Tap Jump or Crouch simultaneously with zero responder cancellation or touch lockouts.
+  - **Tactile Stance Toggling for Crouch (`virtual-joystick.tsx`):** Fixed double-trigger cancellation by tracking `crouchTouchId` within the unified responder lifecycle. Partitioned Crouch and Sprint secondary row boundaries cleanly at the midpoint (`rightEdge - 69`) with visual press depression (`isPressingCrouch`) and persistent blue active highlight (`isCrouching`) during stealth sneaking.
+  - **Child `pointerEvents="none"` Layout Isolation:** Child UI buttons and joystick visuals render cleanly with `pointerEvents="none"`, ensuring Android's native `MotionEvent` pipeline dispatches all multi-pointer events cleanly to the unified container.
+  - **Dynamic Projection Matrix & Aspect Sync (`fisheye-camera.tsx`):** Added proactive camera aspect ratio validation and `updateProjectionMatrix()` inside `useFrame`, eliminating degenerate projection matrix culling that turned the canvas solid blue on iPhone orientation switches.
+  - **Zero Drei Dependencies on Native:** Replaced `@react-three/drei`'s `<Float>` and DOM-dependent `<OrbitControls>` with 100% native Three.js/R3F rigs (`FloatingStar` and mathematical spherical orbit), eliminating crashes on native iOS `expo-gl`.
+  - **Explicit Native Canvas Geometry (`game-canvas.tsx`):** Configured `{ flex: 1, width: '100%', height: '100%' }` with `onCreated` projection initialization so `onLayout` always registers full-screen viewport bounds before WebGL frame starts.
+  - **Synchronous Native Startup (`src/app/index.tsx`):** Eliminated the SSR null-return on native iOS/Android engines, ensuring immediate 3D arena mounting.
+  - **Live Transparent Menu Backdrop:** 3D arena ground, character, and bots remain 100% loaded and visible behind the frosted menu at startup, gently orbiting in cinematic slow-motion until the user taps Play.
+
+### Phase 4: Polish, Bangladeshi Village & Multiplayer
+- [x] **Bangladeshi Village Map Expansion (`bangladeshi-village.tsx`):**
+  - **Traditional Bangladeshi Tin-Roofed Homestead (টিনের দোচালা ঘর ও বারান্দা):** Crafted in procedural stylized Three.js geometry matching the vibrant cartoon aesthetic of Lukao. Features a raised clay plinth (`মাটির ভিটা`), veranda step (`সিঁড়ি`), teal double-shutter wooden windows with security bars, dark wood front door with metal latch, open veranda with turned timber pillars and bamboo seating railing, silver corrugated tin roof with fluted ridges (`টিনের ঢেউ`), and the signature red metal ridge cap (`লাল মটকা`).
+  - **Zero-External Asset Architecture:** 100% self-contained Three.js geometry with zero external texture downloads, zero Metro bundler memory overhead, and instant 0ms mount across Web, iOS, and Android.
+  - **Climbable Straw Bales & Rooftop Access:** Side steps and ramp allowing players to scramble onto the tin roof for high-ground scouting.
+  - **Animated Domestic Cow (গরু ঘাস খাচ্ছে - Cow.glb):** Integrated the high-quality 3D animated `Cow.glb` asset. Rigged and skinned with authentic looping `'Eating'` animation (head lowering and chewing grass beside the manger) via `GLTFLoader` and `AnimationMixer` with zero runtime network fetching (`cow-model-data.ts`). Tethered to a wooden post beside a clay feeding manger (`জাবনা চাড়ি`) filled with straw.
+  - **Golden Haystacks (খড়ের গাদা):** Conical tiered straw mounds with a central bamboo spire, creating natural hiding spots that trigger `"🌿 HIDDEN"` stealth cover.
+  - **Classic Cast-Iron Tubewell (সবুজ চাপাকল):** Green hand pump with pump handle, concrete soaking base (`পাকা ঘাটলা`), and red water bucket.
+  - **Rural Foliage & Kitchen:** Broad-leaf banana trees with green banana bunches, tall coconut palms, outdoor clay cooking stove (`মাটির চুলা`), and stacked earthen pots (`মাটির কলসি`).
+  - **3D Physics & Collision Integration (`collision-system.ts`):** Complete collision bounds matching the homestead plinth, veranda, walls, tin roof, climbing ramps, haystacks, cow, and tubewell.
+  - **AI Bots & Missions Integration:** AI hider bots now utilize the veranda and haystack as strategic hiding waypoints; updated Mission `#03` to *"Gramer Bari Star Heist"*.
 - [ ] Free CC0 assets integration (Kenney & Quaternius packs).
 - [ ] Multiplayer room support (WebSocket / PartyKit / Colyseus).
 - [ ] Mobile performance tuning (target rock-solid 60 FPS).

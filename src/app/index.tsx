@@ -1,16 +1,19 @@
 import '@/polyfills';
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, Platform } from 'react-native';
 import { LukaoGameView } from '@/components/game/lukao-game-view';
 
 export default function HomeScreen() {
-  const [isClient, setIsClient] = useState(false);
+  const isWeb = Platform.OS === 'web';
+  const [isClient, setIsClient] = useState(!isWeb);
 
   useEffect(() => {
-    setIsClient(true);
-  }, []);
+    if (isWeb) {
+      setIsClient(true);
+    }
+  }, [isWeb]);
 
-  if (!isClient) return null;
+  if (isWeb && !isClient) return null;
 
   return (
     <View style={styles.container}>

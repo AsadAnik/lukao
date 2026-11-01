@@ -1,50 +1,12 @@
-import React, { useMemo } from 'react';
-import { Platform } from 'react-native';
-import * as THREE from 'three';
+import React from 'react';
 
 export function ArenaGround() {
-  // Create a stylized checkered / grid texture dynamically (Web only)
-  const gridTexture = useMemo(() => {
-    if (Platform.OS !== 'web' || typeof document === 'undefined') return null;
-    try {
-      const canvas = document.createElement('canvas');
-      canvas.width = 256;
-      canvas.height = 256;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return null;
-
-      // Grass / mint green palette
-      ctx.fillStyle = '#48bb78';
-      ctx.fillRect(0, 0, 256, 256);
-
-      ctx.fillStyle = '#38a169';
-      ctx.fillRect(0, 0, 128, 128);
-      ctx.fillRect(128, 128, 128, 128);
-
-      // Subtle playful dots
-      ctx.fillStyle = '#2f855a';
-      ctx.beginPath();
-      ctx.arc(64, 64, 10, 0, Math.PI * 2);
-      ctx.arc(192, 192, 10, 0, Math.PI * 2);
-      ctx.fill();
-
-      const texture = new THREE.CanvasTexture(canvas);
-      texture.wrapS = THREE.RepeatWrapping;
-      texture.wrapT = THREE.RepeatWrapping;
-      texture.repeat.set(16, 16);
-      return texture;
-    } catch {
-      return null;
-    }
-  }, []);
-
   return (
     <group>
       {/* Main Ground Disc / Platform */}
       <mesh receiveShadow position={[0, -0.25, 0]}>
         <cylinderGeometry args={[32, 33, 0.5, 64]} />
         <meshStandardMaterial
-          map={gridTexture || undefined}
           color="#38a169"
           roughness={0.65}
           metalness={0.05}

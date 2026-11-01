@@ -1,10 +1,10 @@
-import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
+import { useRef } from 'react';
 import * as THREE from 'three';
-import { inputState } from './input-manager';
-import { lukaoStore } from './game-state';
 import { collisionWorld } from './collision-system';
-import { playerTransform, gameEngine } from './game-engine-state';
+import { gameEngine, playerTransform } from './game-engine-state';
+import { lukaoStore } from './game-state';
+import { inputState } from './input-manager';
 
 export function PlayerCharacter() {
   const groupRef = useRef<THREE.Group>(null);
@@ -240,12 +240,18 @@ export function PlayerCharacter() {
     const distToBushes = Math.hypot(position.current.x - 12, position.current.z - 11);
     const distToBushGrove2 = Math.hypot(position.current.x - (-16), position.current.z - (-8));
     const distToTunnel = Math.hypot(position.current.x - (-2), position.current.z - (-13));
-    const distToCrates = Math.hypot(position.current.x - (-11), position.current.z - 9);
+    const distToVillage = Math.hypot(position.current.x - (-12), position.current.z - 9);
+    const distToHaystack = Math.hypot(position.current.x - (-17.8), position.current.z - 6.8);
 
     let detectedStealth: 'hidden' | 'partially_hidden' | 'exposed' = 'exposed';
-    if (distToBushes < 3.8 || distToBushGrove2 < 3.5 || (distToTunnel < 2.5 && position.current.y < 1.6)) {
+    if (
+      distToBushes < 3.8 ||
+      distToBushGrove2 < 3.5 ||
+      distToHaystack < 3.8 ||
+      (distToTunnel < 2.5 && position.current.y < 1.6)
+    ) {
       detectedStealth = 'hidden';
-    } else if (distToCrates < 5.2 || isCrouching) {
+    } else if (distToVillage < 5.8 || isCrouching) {
       detectedStealth = 'partially_hidden';
     }
 
