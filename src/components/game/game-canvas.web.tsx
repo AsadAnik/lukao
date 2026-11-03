@@ -18,11 +18,11 @@ export function GameCanvas({ children }: GameCanvasProps) {
         width: '100vw',
         height: '100vh',
         overflow: 'hidden',
-        backgroundColor: '#90cdf4',
+        backgroundColor: '#38bdf8',
       }}
     >
       <Canvas
-        camera={{ position: [0, 4, 8], fov: 70, near: 0.1, far: 200 }}
+        camera={{ position: [0, 4, 8], fov: 70, near: 0.1, far: 500 }}
         style={{
           width: '100%',
           height: '100%',
@@ -40,7 +40,13 @@ export function GameCanvas({ children }: GameCanvasProps) {
             cam.updateProjectionMatrix();
           }
           state.camera.lookAt(0, 0.75, 0);
-          state.gl.setClearColor(new THREE.Color('#90cdf4'), 1);
+
+          // Cinematic Madbox-Style Stylized Tone Mapping & Soft Shadows
+          state.gl.toneMapping = THREE.ACESFilmicToneMapping;
+          state.gl.toneMappingExposure = 1.15;
+          state.gl.shadowMap.enabled = true;
+          state.gl.shadowMap.type = THREE.PCFSoftShadowMap;
+          state.gl.setClearColor(new THREE.Color('#38bdf8'), 1);
         }}
       >
         {children}

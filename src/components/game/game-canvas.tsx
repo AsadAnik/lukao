@@ -12,7 +12,7 @@ export function GameCanvas({ children }: GameCanvasProps) {
   return (
     <View style={styles.container}>
       <Canvas
-        camera={{ position: [0, 4, 8], fov: 65, near: 0.1, far: 200 }}
+        camera={{ position: [0, 4, 8], fov: 65, near: 0.1, far: 450 }}
         gl={{
           antialias: true,
           powerPreference: 'high-performance',
@@ -26,7 +26,12 @@ export function GameCanvas({ children }: GameCanvasProps) {
             cam.updateProjectionMatrix();
           }
           state.camera.lookAt(0, 0.75, 0);
-          state.gl.setClearColor(new THREE.Color('#90cdf4'), 1);
+
+          // Cinematic Madbox-Style Stylized Tone Mapping (Disabling multi-pass shadow map on mobile for 60FPS)
+          state.gl.toneMapping = THREE.ACESFilmicToneMapping;
+          state.gl.toneMappingExposure = 1.15;
+          state.gl.shadowMap.enabled = false;
+          state.gl.setClearColor(new THREE.Color('#38bdf8'), 1);
         }}
         style={styles.canvas}
       >
@@ -46,7 +51,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#90cdf4',
+    backgroundColor: '#38bdf8',
   },
   canvas: {
     flex: 1,

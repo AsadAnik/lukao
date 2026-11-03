@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { dolphinRide, startDolphinRide, balloonRide, startBalloonRide } from './game-engine-state';
 
 export interface InputState {
   forward: boolean;
@@ -68,6 +69,14 @@ export function setupKeyboardControls() {
         break;
       case 'KeyC':
         inputState.crouch = true;
+        break;
+      case 'KeyE':
+      case 'KeyR':
+        if (dolphinRide.canRide) {
+          startDolphinRide();
+        } else if (balloonRide.canFly) {
+          startBalloonRide();
+        }
         break;
     }
   };

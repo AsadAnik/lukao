@@ -75,6 +75,9 @@ export function MainMenuModal() {
               </Text>
             </View>
             <Text style={styles.titleText}>LUKAO ARENA</Text>
+            <Text style={styles.progressionSubText}>
+              ⭐ {store.progression.totalPoints} PTS • {store.progression.highestRank} ({store.progression.unlockedIslands.length}/5 Islands)
+            </Text>
           </View>
 
           <View style={styles.headerRightActions}>
@@ -272,6 +275,13 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '900',
     letterSpacing: 1.5,
+  },
+  progressionSubText: {
+    color: '#ecc94b',
+    fontSize: 10,
+    fontWeight: '800',
+    marginTop: 2,
+    letterSpacing: 0.5,
   },
   headerRightActions: {
     flexDirection: 'row',

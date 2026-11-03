@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { PanResponder, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Animated, PanResponder, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { lukaoStore } from './game-state';
 import { inputState } from './input-manager';
+import { dolphinRide, startDolphinRide, balloonRide, startBalloonRide } from './game-engine-state';
 
 const JOYSTICK_RADIUS = 46;
 
@@ -13,8 +14,13 @@ export function VirtualJoystick() {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
 
   const [canTag, setCanTag] = useState(false);
+  const [canRideDolphin, setCanRideDolphin] = useState(false);
+  const canRideDolphinRef = useRef(false);
+  const [canFlyBalloon, setCanFlyBalloon] = useState(false);
+  const canFlyBalloonRef = useRef(false);
   const [isJoystickActive, setIsJoystickActive] = useState(false);
-  const [knobOffset, setKnobOffset] = useState({ x: 0, y: 0 });
+  // Zero-rerender animated value for joystick knob
+  const knobAnim = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
 
   const [isPressingJump, setIsPressingJump] = useState(false);
   const [isPressingCrouch, setIsPressingCrouch] = useState(false);
@@ -31,6 +37,7 @@ export function VirtualJoystick() {
   const sprintTouchId = useRef<TouchId | null>(null);
   const jumpTouchId = useRef<TouchId | null>(null);
   const crouchTouchId = useRef<TouchId | null>(null);
+  const dolphinTouchId = useRef<TouchId | null>(null);
 
   const cameraLastPos = useRef({ x: 0, y: 0 });
 
@@ -40,8 +47,21 @@ export function VirtualJoystick() {
       setCanTag(tagPossible);
       canTagRef.current = tagPossible;
     });
+
+    const interval = setInterval(() => {
+      if (dolphinRide.canRide !== canRideDolphinRef.current) {
+        canRideDolphinRef.current = dolphinRide.canRide;
+        setCanRideDolphin(dolphinRide.canRide);
+      }
+      if (balloonRide.canFly !== canFlyBalloonRef.current) {
+        canFlyBalloonRef.current = balloonRide.canFly;
+        setCanFlyBalloon(balloonRide.canFly);
+      }
+    }, 150);
+
     return () => {
       unsub();
+      clearInterval(interval);
     };
   }, []);
 
@@ -54,7 +74,7 @@ export function VirtualJoystick() {
   const rightOffset = Math.max(insets.right + 16, 20);
   const bottomOffset = Math.max(insets.bottom + 14, 20);
 
-  // Joystick displacement logic
+  // Joystick displacement logic (Direct native animated value update: ZERO React component re-renders!)
   const handleJoystick = useCallback((pageX: number, pageY: number) => {
     const dx = pageX - baseCenterX;
     const dy = pageY - baseCenterY;
@@ -67,7 +87,7 @@ export function VirtualJoystick() {
       clampedY = (dy / dist) * JOYSTICK_RADIUS;
     }
 
-    setKnobOffset({ x: clampedX, y: clampedY });
+    knobAnim.setValue({ x: clampedX, y: clampedY });
 
     // Dead-zone check (5px)
     if (dist > 5) {
@@ -77,14 +97,14 @@ export function VirtualJoystick() {
       inputState.joystickX = 0;
       inputState.joystickY = 0;
     }
-  }, [baseCenterX, baseCenterY]);
+  }, [baseCenterX, baseCenterY, knobAnim]);
 
   const resetJoystick = useCallback(() => {
-    setKnobOffset({ x: 0, y: 0 });
+    knobAnim.setValue({ x: 0, y: 0 });
     setIsJoystickActive(false);
     inputState.joystickX = 0;
     inputState.joystickY = 0;
-  }, []);
+  }, [knobAnim]);
 
   // Dynamic button hitboxes (with precise, non-overlapping partitioning and generous touch slop)
   const getButtonHitBoxes = useCallback(() => {
@@ -131,7 +151,15 @@ export function VirtualJoystick() {
       maxY: bottomEdge - 78 - 10 - 64 - 10 + slop,
     };
 
-    return { jumpBox, sprintBox, crouchBox, tagBox };
+    // 5. Dolphin Ride Action Box (when near friendly dolphin)
+    const dolphinBox = {
+      minX: rightEdge - 150 - slop,
+      maxX: rightEdge + slop,
+      minY: bottomEdge - 240 - slop,
+      maxY: bottomEdge - 152 + slop,
+    };
+
+    return { jumpBox, sprintBox, crouchBox, tagBox, dolphinBox };
   }, [screenWidth, screenHeight, rightOffset, bottomOffset]);
 
   const isInside = (x: number, y: number, box: { minX: number; maxX: number; minY: number; maxY: number }) => {
@@ -151,20 +179,33 @@ export function VirtualJoystick() {
         id === cameraTouchId.current ||
         id === sprintTouchId.current ||
         id === jumpTouchId.current ||
-        id === crouchTouchId.current
+        id === crouchTouchId.current ||
+        id === dolphinTouchId.current
       ) {
         return;
       }
 
-      const { jumpBox, sprintBox, crouchBox, tagBox } = getButtonHitBoxes();
+      const { jumpBox, sprintBox, crouchBox, tagBox, dolphinBox } = getButtonHitBoxes();
 
-      // 1. Tag Button (highest priority if active)
+      // 1. Dolphin Ride / Hot Air Balloon Button (highest priority if near transport)
+      if (canRideDolphinRef.current && isInside(px, py, dolphinBox)) {
+        dolphinTouchId.current = id;
+        startDolphinRide();
+        return;
+      }
+      if (canFlyBalloonRef.current && isInside(px, py, dolphinBox)) {
+        dolphinTouchId.current = id;
+        startBalloonRide();
+        return;
+      }
+
+      // 2. Tag Button (highest priority if active)
       if (canTagRef.current && isInside(px, py, tagBox)) {
         lukaoStore.getState().performTagAction();
         return;
       }
 
-      // 2. Jump Button
+      // 3. Jump Button
       if (isInside(px, py, jumpBox)) {
         jumpTouchId.current = id;
         setIsPressingJump(true);
@@ -238,6 +279,9 @@ export function VirtualJoystick() {
           inputState.jump = false;
         }, 150);
       }
+      if (id === dolphinTouchId.current) {
+        dolphinTouchId.current = null;
+      }
     },
     [resetJoystick]
   );
@@ -248,6 +292,7 @@ export function VirtualJoystick() {
     sprintTouchId.current = null;
     jumpTouchId.current = null;
     crouchTouchId.current = null;
+    dolphinTouchId.current = null;
     resetJoystick();
     setIsSprinting(false);
     inputState.sprint = false;
@@ -386,21 +431,18 @@ export function VirtualJoystick() {
         <Text style={[styles.dirLabel, styles.dirLeft]}>◀</Text>
         <Text style={[styles.dirLabel, styles.dirRight]}>▶</Text>
 
-        {/* Analog Knob */}
-        <View
+        {/* Analog Knob (Native Animated transform for zero-lag 120Hz tracking) */}
+        <Animated.View
           style={[
             styles.joystickKnob,
             {
               backgroundColor: isJoystickActive ? '#ecc94b' : 'rgba(255, 255, 255, 0.92)',
-              transform: [
-                { translateX: knobOffset.x },
-                { translateY: knobOffset.y },
-              ],
+              transform: knobAnim.getTranslateTransform(),
             },
           ]}
         >
           <View style={styles.knobPip} />
-        </View>
+        </Animated.View>
       </View>
 
       {/* ── Action Buttons Visual (pointerEvents="none" so all touches route to unified PanResponder) ── */}
@@ -414,6 +456,30 @@ export function VirtualJoystick() {
           },
         ]}
       >
+        {/* Glowing Cyan Dolphin Ride Action Button */}
+        {canRideDolphin && (
+          <View style={[styles.btnBase, styles.btnDolphin]}>
+            <Text style={styles.btnTextDolphin}>
+              {dolphinRide.activeRoute === 'route_2'
+                ? dolphinRide.currentLocation === 'desert'
+                  ? '🐬 RIDE TO HILL TRACTS'
+                  : '🐬 RETURN TO DESERT'
+                : dolphinRide.currentLocation === 'home'
+                  ? '🐬 RIDE TO ICE ATOLL'
+                  : '🐬 RETURN HOME'}
+            </Text>
+          </View>
+        )}
+
+        {/* Glowing Orange Hot Air Balloon Flight Action Button */}
+        {canFlyBalloon && !canRideDolphin && (
+          <View style={[styles.btnBase, styles.btnDolphin, { backgroundColor: '#ea580c', borderColor: '#facc15' }]}>
+            <Text style={styles.btnTextDolphin}>
+              {balloonRide.currentLocation === 'ice' ? '🎈 FLY TO LEVEL 3' : '🎈 FLY TO LEVEL 2'}
+            </Text>
+          </View>
+        )}
+
         {/* Pulsing TAG Button when within reach of an AI Hider */}
         {canTag && (
           <View style={[styles.btnBase, styles.btnTag]}>
@@ -616,6 +682,25 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.8,
     shadowRadius: 10,
     elevation: 8,
+  },
+  btnDolphin: {
+    paddingHorizontal: 16,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#0284c7',
+    borderWidth: 2.5,
+    borderColor: '#e0f2fe',
+    shadowColor: '#0284c7',
+    shadowOpacity: 0.85,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  btnTextDolphin: {
+    color: '#ffffff',
+    fontWeight: '900',
+    fontSize: 12,
+    letterSpacing: 0.4,
+    textAlign: 'center',
   },
   btnTextTag: {
     color: '#ffffff',

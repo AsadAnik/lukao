@@ -2,12 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, Platform, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { lukaoStore, GameState } from './game-state';
+import { dolphinRide, startDolphinRide, balloonRide, startBalloonRide } from './game-engine-state';
 
 export function GameHUD() {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [isClient, setIsClient] = useState(false);
   const [store, setStore] = useState<GameState>(() => lukaoStore.getState());
+  const [isRidingDolphin, setIsRidingDolphin] = useState(false);
+  const [canRideDolphin, setCanRideDolphin] = useState(false);
+  const [dolphinPromptText, setDolphinPromptText] = useState('');
+  const [isFlyingBalloon, setIsFlyingBalloon] = useState(false);
+  const [canFlyBalloon, setCanFlyBalloon] = useState(false);
+  const [balloonPromptText, setBalloonPromptText] = useState('');
 
   useEffect(() => {
     setIsClient(true);
@@ -23,11 +30,35 @@ export function GameHUD() {
       lukaoStore.getState().decrementTimer();
     }, 1000);
 
+    // Fast sync for dolphin ride & balloon ride state
+    const transportSync = setInterval(() => {
+      if (dolphinRide.isRiding !== isRidingDolphin) {
+        setIsRidingDolphin(dolphinRide.isRiding);
+      }
+      if (dolphinRide.canRide !== canRideDolphin) {
+        setCanRideDolphin(dolphinRide.canRide);
+      }
+      if (dolphinRide.promptText !== dolphinPromptText) {
+        setDolphinPromptText(dolphinRide.promptText);
+      }
+
+      if (balloonRide.isFlying !== isFlyingBalloon) {
+        setIsFlyingBalloon(balloonRide.isFlying);
+      }
+      if (balloonRide.canFly !== canFlyBalloon) {
+        setCanFlyBalloon(balloonRide.canFly);
+      }
+      if (balloonRide.promptText !== balloonPromptText) {
+        setBalloonPromptText(balloonRide.promptText);
+      }
+    }, 50);
+
     return () => {
       unsub();
       clearInterval(interval);
+      clearInterval(transportSync);
     };
-  }, []);
+  }, [isRidingDolphin, canRideDolphin, dolphinPromptText, isFlyingBalloon, canFlyBalloon, balloonPromptText]);
 
   const isMobile = isClient ? (width <= 960 || Platform.OS !== 'web') : false;
 
@@ -92,6 +123,14 @@ export function GameHUD() {
             <Text style={styles.hidersCountLabel}>HIDERS ALIVE</Text>
             <Text style={styles.hidersCountValue}>
               {store.hidersRemaining} / {store.totalHiders}
+            </Text>
+          </View>
+
+          {/* Player Points & Archipelago Rank Card */}
+          <View style={[styles.glassCard, styles.pointsCard, isMobile && styles.pointsCardMobile]}>
+            <Text style={styles.pointsLabel}>⭐ LUKAO POINTS</Text>
+            <Text style={[styles.pointsValue, isMobile && styles.pointsValueMobile]}>
+              {store.progression.totalPoints} <Text style={styles.pointsSubText}>PTS</Text>
             </Text>
           </View>
 
@@ -166,7 +205,7 @@ export function GameHUD() {
         </View>
       )}
 
-      {/* ── Game Over Modal ── */}
+      {/* ── Game Over Modal with Milestone 1 Progression & Star Rating ── */}
       {store.phase === 'game_over' && (
         <View style={styles.gameOverOverlay} pointerEvents="auto">
           <View style={styles.gameOverCard}>
@@ -188,8 +227,68 @@ export function GameHUD() {
                 : 'Time ran out! Hiders escaped!'}
             </Text>
 
+            {/* Performance Ranking & Points Card */}
+            {store.lastMatchResult && (
+              <View style={styles.scoringCard}>
+                <View style={styles.rankStarsRow}>
+                  <Text style={styles.rankStarsText}>
+                    {'⭐'.repeat(store.lastMatchResult.stars)}
+                  </Text>
+                  <Text style={styles.rankBadgeText}>
+                    {store.lastMatchResult.rankTitle}
+                  </Text>
+                </View>
+
+                <View style={styles.pointsEarnedBanner}>
+                  <Text style={styles.pointsEarnedLabel}>POINTS EARNED</Text>
+                  <Text style={styles.pointsEarnedValue}>
+                    +{store.lastMatchResult.pointsEarned} PTS
+                  </Text>
+                </View>
+
+                {/* Points Breakdown */}
+                <View style={styles.breakdownList}>
+                  {store.lastMatchResult.breakdown.map((item, idx) => (
+                    <View key={idx} style={styles.breakdownRow}>
+                      <Text style={styles.breakdownLabel}>• {item.label}</Text>
+                      <Text style={styles.breakdownPoints}>+{item.points}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* Account Total Balance */}
+                <View style={styles.totalPointsRow}>
+                  <Text style={styles.totalPointsLabel}>Total Account Points:</Text>
+                  <Text style={styles.totalPointsValue}>
+                    {store.lastMatchResult.newTotalPoints} PTS ({store.progression.highestRank})
+                  </Text>
+                </View>
+
+                {/* Celebratory Unlock Card if Island Unlocked */}
+                {store.lastMatchResult.newlyUnlockedIsland && (
+                  <View style={styles.unlockCelebrationBanner}>
+                    <Text style={styles.unlockCelebrationTitle}>
+                      🎉 NEW ISLAND UNLOCKED!
+                    </Text>
+                    <Text style={styles.unlockCelebrationSubtitle}>
+                      🐬 Level {store.lastMatchResult.newlyUnlockedIsland.number}: {store.lastMatchResult.newlyUnlockedIsland.name} ({store.lastMatchResult.newlyUnlockedIsland.nameBn})
+                    </Text>
+                    <Text style={styles.unlockCelebrationHint}>
+                      Dolphin sea ride is now open at the South Beach pier!
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+
             {/* Game Stats */}
             <View style={styles.statsRow}>
+              <View style={styles.statBox}>
+                <Text style={styles.statLabel}>Time</Text>
+                <Text style={styles.statValue}>
+                  {store.lastMatchResult ? `${store.lastMatchResult.timeTaken}s` : `${75 - store.timeLeft}s`}
+                </Text>
+              </View>
               <View style={styles.statBox}>
                 <Text style={styles.statLabel}>Caught</Text>
                 <Text style={styles.statValue}>
@@ -215,8 +314,112 @@ export function GameHUD() {
         </View>
       )}
 
+      {/* ── Active Dolphin Ride Cinematic Banner ── */}
+      {isRidingDolphin && (
+        <View style={styles.floatingCenterBanner} pointerEvents="none">
+          <View style={styles.dolphinRidingBadge}>
+            <Text style={styles.dolphinRidingText}>
+              {dolphinRide.promptText || '🌊 LEAPING THROUGH THE SEA...'}
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* ── Active Hot Air Balloon Flying Banner ── */}
+      {isFlyingBalloon && (
+        <View style={styles.floatingCenterBanner} pointerEvents="none">
+          <View style={[styles.dolphinRidingBadge, { backgroundColor: '#ea580c', borderColor: '#facc15' }]}>
+            <Text style={styles.dolphinRidingText}>
+              {balloonRide.promptText || '☁️ SOARING ABOVE CLOUDS...'}
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* ── Floating Dolphin Ride Interaction & Gatekeeper Banner ── */}
+      {dolphinPromptText !== '' && !isRidingDolphin && !isFlyingBalloon && (
+        <View style={styles.floatingCenterPrompt} pointerEvents="box-none">
+          {canRideDolphin ? (
+            <Pressable
+              style={styles.dolphinPromptCard}
+              onPress={(e) => {
+                e?.stopPropagation?.();
+                startDolphinRide();
+                setIsRidingDolphin(true);
+              }}
+            >
+              <Text style={styles.dolphinPromptText}>
+                {dolphinPromptText || (dolphinRide.currentLocation === 'home'
+                  ? '🐬 PRESS [E] OR TAP TO RIDE TO ICE AGE ISLAND (হিমেল দ্বীপে চলো!)'
+                  : '🐬 PRESS [E] OR TAP TO RETURN HOME (মূল দ্বীপে ফিরে চলো)')}
+              </Text>
+            </Pressable>
+          ) : (
+            <View style={styles.dolphinLockedCard}>
+              <Text style={styles.dolphinLockedTitle}>
+                🔒 LEVEL 2: ICE AGE ISLAND LOCKED (পয়েন্ট প্রয়োজন: 500)
+              </Text>
+              <Text style={styles.dolphinLockedSubtitle}>
+                Progress: {store.progression.totalPoints} / 500 Points ({Math.min(100, Math.floor((store.progression.totalPoints / 500) * 100))}%)
+              </Text>
+              <View style={styles.progressBarTrack}>
+                <View
+                  style={[
+                    styles.progressBarFill,
+                    { width: `${Math.min(100, (store.progression.totalPoints / 500) * 100)}%` },
+                  ]}
+                />
+              </View>
+              <Text style={styles.dolphinLockedHint}>
+                Win matches as Hider or Seeker to earn points and unlock ocean passage!
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* ── Floating Hot Air Balloon Ride Interaction & Gatekeeper Banner ── */}
+      {balloonPromptText !== '' && !isFlyingBalloon && !isRidingDolphin && (
+        <View style={styles.floatingCenterPrompt} pointerEvents="box-none">
+          {canFlyBalloon ? (
+            <Pressable
+              style={[styles.dolphinPromptCard, { backgroundColor: 'rgba(234, 88, 12, 0.95)', borderColor: '#facc15' }]}
+              onPress={(e) => {
+                e?.stopPropagation?.();
+                startBalloonRide();
+                setIsFlyingBalloon(true);
+              }}
+            >
+              <Text style={styles.dolphinPromptText}>
+                {balloonRide.promptText}
+              </Text>
+            </Pressable>
+          ) : (
+            <View style={[styles.dolphinLockedCard, { borderColor: '#ea580c' }]}>
+              <Text style={[styles.dolphinLockedTitle, { color: '#facc15' }]}>
+                🔒 LEVEL 3: DESERT WORLD LOCKED (পয়েন্ট প্রয়োজন: 1200)
+              </Text>
+              <Text style={styles.dolphinLockedSubtitle}>
+                Progress: {store.progression.totalPoints} / 1200 Points ({Math.min(100, Math.floor((store.progression.totalPoints / 1200) * 100))}%)
+              </Text>
+              <View style={styles.progressBarTrack}>
+                <View
+                  style={[
+                    styles.progressBarFill,
+                    { backgroundColor: '#ea580c', width: `${Math.min(100, (store.progression.totalPoints / 1200) * 100)}%` },
+                  ]}
+                />
+              </View>
+              <Text style={styles.dolphinLockedHint}>
+                Win matches to earn points and unlock high-altitude balloon flight to the Pyramids!
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
+
       {/* ── Bottom Tool Bar: Only rendered on Desktop View ── */}
-      {!isMobile && store.phase !== 'game_over' && (
+      {!isMobile && store.phase !== 'game_over' && !isRidingDolphin && (
         <View style={styles.bottomBar} pointerEvents="box-none">
           {/* Desktop Controls Hint */}
           <View style={[styles.glassCard, styles.desktopHint]}>
@@ -353,6 +556,34 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '900',
   },
+  pointsCard: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(236, 201, 75, 0.16)',
+    borderColor: 'rgba(236, 201, 75, 0.45)',
+  },
+  pointsCardMobile: {
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+  },
+  pointsLabel: {
+    color: '#ecc94b',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  pointsValue: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  pointsValueMobile: {
+    fontSize: 13,
+  },
+  pointsSubText: {
+    fontSize: 10,
+    color: '#ecc94b',
+    fontWeight: '700',
+  },
   roleButton: {
     alignItems: 'center',
     minWidth: 80,
@@ -455,6 +686,58 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 1,
   },
+  dolphinPromptCard: {
+    backgroundColor: '#0284c7',
+    paddingVertical: 10,
+    paddingHorizontal: 22,
+    borderRadius: 16,
+    borderWidth: 2.5,
+    borderColor: '#e0f2fe',
+    shadowColor: '#0284c7',
+    shadowOpacity: 0.85,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  floatingCenterPrompt: {
+    position: 'absolute',
+    bottom: 96,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 50,
+  },
+  floatingCenterBanner: {
+    position: 'absolute',
+    top: 72,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 50,
+  },
+  dolphinRidingBadge: {
+    backgroundColor: 'rgba(2, 132, 199, 0.92)',
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: '#e0f2fe',
+    shadowColor: '#0284c7',
+    shadowOpacity: 0.9,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  dolphinRidingText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  dolphinPromptText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
   seekerBlindOverlay: {
     ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(10, 10, 20, 0.75)',
@@ -531,6 +814,165 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginTop: 6,
+    textAlign: 'center',
+  },
+  scoringCard: {
+    width: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: 16,
+    padding: 14,
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    gap: 8,
+  },
+  rankStarsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  rankStarsText: {
+    fontSize: 18,
+    letterSpacing: 2,
+  },
+  rankBadgeText: {
+    color: '#ecc94b',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  pointsEarnedBanner: {
+    backgroundColor: 'rgba(236, 201, 75, 0.15)',
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#ecc94b',
+  },
+  pointsEarnedLabel: {
+    color: '#ecc94b',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  pointsEarnedValue: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  breakdownList: {
+    gap: 3,
+    paddingHorizontal: 4,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  breakdownLabel: {
+    color: '#cbd5e1',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  breakdownPoints: {
+    color: '#68d391',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  totalPointsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  totalPointsLabel: {
+    color: '#a0aec0',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  totalPointsValue: {
+    color: '#ecc94b',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  unlockCelebrationBanner: {
+    backgroundColor: 'rgba(16, 185, 129, 0.22)',
+    borderColor: '#10b981',
+    borderWidth: 1.5,
+    borderRadius: 12,
+    padding: 10,
+    alignItems: 'center',
+    gap: 2,
+    marginTop: 4,
+  },
+  unlockCelebrationTitle: {
+    color: '#6ee7b7',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  unlockCelebrationSubtitle: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  unlockCelebrationHint: {
+    color: '#d1fae5',
+    fontSize: 10,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  dolphinLockedCard: {
+    backgroundColor: 'rgba(30, 41, 59, 0.94)',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: '#f59e0b',
+    shadowColor: '#000',
+    shadowOpacity: 0.6,
+    shadowRadius: 10,
+    elevation: 8,
+    maxWidth: 420,
+    alignItems: 'center',
+    gap: 6,
+  },
+  dolphinLockedTitle: {
+    color: '#f59e0b',
+    fontSize: 12.5,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  dolphinLockedSubtitle: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  progressBarTrack: {
+    width: '100%',
+    height: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#ecc94b',
+    borderRadius: 4,
+  },
+  dolphinLockedHint: {
+    color: '#94a3b8',
+    fontSize: 9.5,
+    fontWeight: '600',
     textAlign: 'center',
   },
   statsRow: {

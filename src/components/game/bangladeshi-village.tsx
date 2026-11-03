@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { getCowArrayBuffer } from './cow-model-data';
+import { VillageChickens } from './village-chickens';
 
 // ── 1. Traditional Bangladeshi Tin-Roofed Homestead (টিনের দোচালা ঘর ও বারান্দা) ──
 function TinHomestead({ position = [0, 0, 0] }: { position?: [number, number, number] }) {
@@ -408,27 +409,35 @@ function CoconutPalm({ position = [0, 0, 0] }: { position?: [number, number, num
       {/* Tall Curved Trunk (নারিকেল গাছের গুঁড়ি) */}
       <mesh castShadow position={[0.2, 3.2, 0]} rotation={[0, 0, -0.08]}>
         <cylinderGeometry args={[0.2, 0.32, 6.4, 12]} />
-        <meshStandardMaterial color="#744210" roughness={0.85} />
+        <meshStandardMaterial color="#78350f" roughness={0.85} />
       </mesh>
+
+      {/* Trunk Ring Bands */}
+      {[1.2, 2.4, 3.6, 4.8].map((h, i) => (
+        <mesh key={i} position={[0.2 - i * 0.02, h, 0]}>
+          <torusGeometry args={[0.25 - i * 0.015, 0.035, 6, 12]} />
+          <meshStandardMaterial color="#451a03" roughness={0.9} />
+        </mesh>
+      ))}
 
       {/* Palm Fronds / Canopy (নারিকেল গাছের ডালপালা) */}
       {[0, 0.8, 1.6, 2.4, 3.2, 4.0, 4.8, 5.6].map((angle, i) => (
         <group key={i} position={[0.45, 6.3, 0]} rotation={[0, angle, 0]}>
           <mesh castShadow position={[1.4, -0.4, 0]} rotation={[0, 0, -0.45]}>
-            <boxGeometry args={[2.8, 0.05, 0.4]} />
-            <meshStandardMaterial color="#2f855a" roughness={0.65} />
+            <boxGeometry args={[2.8, 0.06, 0.45]} />
+            <meshStandardMaterial color={i % 2 === 0 ? '#15803d' : '#22c55e'} roughness={0.6} />
           </mesh>
         </group>
       ))}
 
       {/* Cluster of Coconuts (ডাব ও নারিকেল) */}
-      <mesh position={[0.45, 6.0, 0.2]}>
-        <sphereGeometry args={[0.18, 8, 8]} />
-        <meshStandardMaterial color="#48bb78" roughness={0.7} />
+      <mesh position={[0.45, 6.0, 0.2]} castShadow>
+        <sphereGeometry args={[0.2, 8, 8]} />
+        <meshStandardMaterial color="#84cc16" roughness={0.65} />
       </mesh>
-      <mesh position={[0.6, 6.0, -0.1]}>
-        <sphereGeometry args={[0.17, 8, 8]} />
-        <meshStandardMaterial color="#b7791f" roughness={0.7} />
+      <mesh position={[0.6, 6.0, -0.1]} castShadow>
+        <sphereGeometry args={[0.18, 8, 8]} />
+        <meshStandardMaterial color="#713f12" roughness={0.7} />
       </mesh>
     </group>
   );
@@ -480,6 +489,9 @@ export function BangladeshiVillage({ position = [-12, 0, 9] }: { position?: [num
       {/* 3. Golden Haystacks (খড়ের গাদা - চমৎকার লুকানোর জায়গা) */}
       <VillageHaystack position={[-5.8, 0, -2.2]} scale={1.1} />
       <VillageHaystack position={[-7.8, 0, -0.6]} scale={0.75} />
+
+      {/* 4. Traditional Free-Range Village Chickens & Rooster (দেশি মুরগি ও মোরগের ঝাঁক) */}
+      <VillageChickens position={[-0.5, 0, 4.2]} />
 
       {/* 5. Tubewell with Concrete Pad (চাপাকল) */}
       <VillageTubewell position={[5.2, 0, 2.8]} />

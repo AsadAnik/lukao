@@ -1,6 +1,18 @@
 import { audioManager } from './audio-manager';
+import {
+  GameRole,
+  IslandLevel,
+  ISLAND_LEVELS,
+  PlayerProgression,
+  LastMatchResult,
+  calculateMatchScore,
+  getRankTierFromPoints,
+} from './progression-types';
+import { loadProgression, saveProgression, DEFAULT_PROGRESSION } from './progression-storage';
 
-export type GameRole = 'hider' | 'seeker';
+export * from './progression-types';
+export { loadProgression, saveProgression } from './progression-storage';
+
 export type GamePhase = 'menu' | 'hiding' | 'seeking' | 'game_over';
 export type Winner = 'hiders' | 'seekers' | null;
 
@@ -124,6 +136,13 @@ export interface GameState {
   isMenuOpen: boolean;
   currentMission: Mission | null;
 
+  // Milestone 1 Progression & Scoring Engine State
+  progression: PlayerProgression;
+  lastMatchResult: LastMatchResult | null;
+  roundElapsedSeconds: number;
+  stealthExposedSeconds: number;
+  islands: IslandLevel[];
+
   // Actions
   setRole: (role: GameRole) => void;
   toggleRole: () => void;
@@ -146,6 +165,11 @@ export interface GameState {
   closeMenu: () => void;
   startQuickPlay: (role?: GameRole) => void;
   startMission: (mission: Mission) => void;
+
+  // Progression Actions
+  addPoints: (amount: number, reason?: string) => void;
+  unlockIsland: (islandId: string) => void;
+  resetProgression: () => void;
 }
 
 const DEFAULT_BOTS: BotState[] = [
@@ -185,6 +209,9 @@ class LukaoStore {
   private listeners = new Set<Listener>();
 
   constructor() {
+    const loadedProg = loadProgression();
+    const initialIslands = this.getUpdatedIslands(loadedProg.unlockedIslands);
+
     this.state = {
       role: 'hider',
       phase: 'hiding',
@@ -210,6 +237,13 @@ class LukaoStore {
       showTouchControls: true,
       isMenuOpen: true,
       currentMission: null,
+
+      // Progression fields
+      progression: loadedProg,
+      lastMatchResult: null,
+      roundElapsedSeconds: 0,
+      stealthExposedSeconds: 0,
+      islands: initialIslands,
 
       setRole: (role) => {
         this.update({ role });
@@ -257,19 +291,20 @@ class LukaoStore {
 
         if (remaining === 0) {
           audioManager.playVictory();
-          this.update({ phase: 'game_over', winner: 'seekers' });
+          // Seeker Tagged All Hiders!
+          this.finalizeMatch(true, this.state.role);
         }
       },
 
       // Tag the player (if player is hider and caught by seeker)
       tagPlayer: () => {
-        if (this.state.playerCaught || this.state.role !== 'hider') return;
+        if (this.state.playerCaught || this.state.role !== 'hider' || this.state.phase === 'game_over') return;
         audioManager.playDefeat();
         this.update({
           playerCaught: true,
-          phase: 'game_over',
-          winner: 'seekers',
         });
+        // Player Hider caught by Seeker
+        this.finalizeMatch(false, 'hider');
       },
 
       performTagAction: () => {
@@ -286,7 +321,23 @@ class LukaoStore {
           if (nextTime <= 5) {
             audioManager.playTick(nextTime === 1);
           }
-          this.update({ timeLeft: nextTime });
+
+          // Advance elapsed match metrics during seeking phase
+          if (this.state.phase === 'seeking') {
+            const nextElapsed = this.state.roundElapsedSeconds + 1;
+            const nextExposed =
+              this.state.role === 'hider' && this.state.stealthStatus === 'exposed'
+                ? this.state.stealthExposedSeconds + 1
+                : this.state.stealthExposedSeconds;
+
+            this.update({
+              timeLeft: nextTime,
+              roundElapsedSeconds: nextElapsed,
+              stealthExposedSeconds: nextExposed,
+            });
+          } else {
+            this.update({ timeLeft: nextTime });
+          }
         } else {
           // Time expired for current phase
           if (this.state.phase === 'hiding') {
@@ -294,18 +345,18 @@ class LukaoStore {
             this.update({
               phase: 'seeking',
               timeLeft: 75, // 75s to seek!
+              roundElapsedSeconds: 0,
+              stealthExposedSeconds: 0,
             });
           } else if (this.state.phase === 'seeking') {
-            // Timer ran out! Hiders survived!
-            if (this.state.role === 'hider') {
+            // Timer ran out! Hiders survived the full round!
+            const hiderWon = this.state.role === 'hider';
+            if (hiderWon) {
               audioManager.playVictory();
             } else {
               audioManager.playDefeat();
             }
-            this.update({
-              phase: 'game_over',
-              winner: 'hiders',
-            });
+            this.finalizeMatch(hiderWon, this.state.role);
           }
         }
       },
@@ -358,15 +409,176 @@ class LukaoStore {
           canTag: false,
           nearbyTargetId: null,
           alertNearby: false,
-          hidersRemaining: isSeeker ? 3 : 2, // If player is hider, 2 other hiders + player = 3
+          hidersRemaining: isSeeker ? 3 : 2,
           totalHiders: isSeeker ? 3 : 2,
           caughtHiders: [],
           bots: freshBots,
           playerPosition: isSeeker ? [14, 0.8, -12] : [0, 0.75, 0],
           stealthStatus: 'exposed',
+          roundElapsedSeconds: 0,
+          stealthExposedSeconds: 0,
+        });
+      },
+
+      addPoints: (amount: number, _reason?: string) => {
+        if (amount <= 0) return;
+        const prev = this.state.progression.totalPoints;
+        const newTotal = prev + amount;
+        const newRank = getRankTierFromPoints(newTotal);
+
+        // Check if any islands unlocked
+        const currentUnlocked = [...this.state.progression.unlockedIslands];
+        let newlyUnlocked: IslandLevel | undefined;
+
+        ISLAND_LEVELS.forEach((island) => {
+          if (newTotal >= island.requiredPoints && !currentUnlocked.includes(island.id)) {
+            currentUnlocked.push(island.id);
+            if (!newlyUnlocked) newlyUnlocked = island;
+          }
+        });
+
+        const nextProg: PlayerProgression = {
+          ...this.state.progression,
+          totalPoints: newTotal,
+          highestRank: newRank,
+          unlockedIslands: currentUnlocked,
+        };
+
+        saveProgression(nextProg);
+
+        this.update({
+          progression: nextProg,
+          islands: this.getUpdatedIslands(currentUnlocked),
+        });
+      },
+
+      unlockIsland: (islandId: string) => {
+        if (this.state.progression.unlockedIslands.includes(islandId)) return;
+        const updated = [...this.state.progression.unlockedIslands, islandId];
+        const nextProg: PlayerProgression = {
+          ...this.state.progression,
+          unlockedIslands: updated,
+        };
+        saveProgression(nextProg);
+        this.update({
+          progression: nextProg,
+          islands: this.getUpdatedIslands(updated),
+        });
+      },
+
+      resetProgression: () => {
+        const nextProg = { ...DEFAULT_PROGRESSION };
+        saveProgression(nextProg);
+        this.update({
+          progression: nextProg,
+          lastMatchResult: null,
+          islands: this.getUpdatedIslands(nextProg.unlockedIslands),
         });
       },
     };
+  }
+
+  private getUpdatedIslands(unlockedIds: string[]): IslandLevel[] {
+    return ISLAND_LEVELS.map((island) => ({
+      ...island,
+      unlocked: unlockedIds.includes(island.id),
+    }));
+  }
+
+  /**
+   * Finalizes the match round, executes the Milestone 1 scoring engine,
+   * checks for island unlocks, and updates persistent player progression.
+   */
+  private finalizeMatch(won: boolean, role: GameRole) {
+    if (this.state.phase === 'game_over') return;
+
+    const timeTaken = Math.max(1, this.state.roundElapsedSeconds);
+    const stealthExposed = this.state.stealthExposedSeconds;
+    const botsCaught = this.state.caughtHiders.length;
+    const totalBots = this.state.totalHiders;
+
+    // 1. Calculate Score & Performance Stars
+    const scoreResult = calculateMatchScore({
+      role,
+      won,
+      timeTaken,
+      stealthExposedSeconds: stealthExposed,
+      botsCaught,
+      totalBots,
+    });
+
+    // 2. Progression Account Updates
+    const prevPoints = this.state.progression.totalPoints;
+    const newTotalPoints = prevPoints + scoreResult.pointsEarned;
+    const newRank = getRankTierFromPoints(newTotalPoints);
+
+    // 3. Island Unlock Evaluation
+    const currentUnlocked = [...this.state.progression.unlockedIslands];
+    let newlyUnlockedIsland: IslandLevel | undefined;
+
+    ISLAND_LEVELS.forEach((island) => {
+      if (newTotalPoints >= island.requiredPoints && !currentUnlocked.includes(island.id)) {
+        currentUnlocked.push(island.id);
+        if (!newlyUnlockedIsland) {
+          newlyUnlockedIsland = island;
+        }
+      }
+    });
+
+    // 4. Best Times Tracking
+    const updatedBestTimes = { ...this.state.progression.bestTimes };
+    if (role === 'seeker' && won) {
+      const prevBest = updatedBestTimes.seekerBestWinTime ?? 999;
+      if (timeTaken < prevBest) {
+        updatedBestTimes.seekerBestWinTime = timeTaken;
+      }
+    } else if (role === 'hider') {
+      const prevBest = updatedBestTimes.hiderBestSurvivalTime ?? 0;
+      if (timeTaken > prevBest) {
+        updatedBestTimes.hiderBestSurvivalTime = timeTaken;
+      }
+    }
+
+    const updatedProgression: PlayerProgression = {
+      totalPoints: newTotalPoints,
+      highestRank: newRank,
+      unlockedIslands: currentUnlocked,
+      bestTimes: updatedBestTimes,
+      matchesPlayed: this.state.progression.matchesPlayed + 1,
+      matchesWon: won ? this.state.progression.matchesWon + 1 : this.state.progression.matchesWon,
+    };
+
+    saveProgression(updatedProgression);
+
+    const lastMatchResult: LastMatchResult = {
+      role,
+      won,
+      timeTaken,
+      stars: scoreResult.stars,
+      rankTier: scoreResult.rankTier,
+      rankTitle: scoreResult.rankTitle,
+      pointsEarned: scoreResult.pointsEarned,
+      breakdown: scoreResult.breakdown,
+      previousPoints: prevPoints,
+      newTotalPoints,
+      newlyUnlockedIsland,
+    };
+
+    const winner: Winner = won
+      ? role === 'seeker'
+        ? 'seekers'
+        : 'hiders'
+      : role === 'seeker'
+      ? 'hiders'
+      : 'seekers';
+
+    this.update({
+      phase: 'game_over',
+      winner,
+      progression: updatedProgression,
+      lastMatchResult,
+      islands: this.getUpdatedIslands(currentUnlocked),
+    });
   }
 
   getState() {
